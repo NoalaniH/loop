@@ -56,12 +56,19 @@ public class LoopNativeModule: Module {
         DispatchQueue.main.async {
           guard let scene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene }).first,
-            let root = scene.windows.first(where: { $0.isKeyWindow })?.rootViewController
+            let keyWindow = scene.keyWindow ?? scene.windows.first(where: { $0.isKeyWindow }) ?? scene.windows.first,
+            let root = keyWindow.rootViewController
           else {
             continuation.resume(throwing: NSError(
               domain: "LoopNative", code: 2,
               userInfo: [NSLocalizedDescriptionKey: "No root view controller found"]))
             return
+          }
+
+          // Walk to the topmost presented view controller so we don't double-present
+          var topVC = root
+          while let presented = topVC.presentedViewController {
+            topVC = presented
           }
 
           let pickerVC = UIHostingController(
@@ -72,17 +79,17 @@ public class LoopNativeModule: Module {
                 self.selection = newSelection
                 self.saveSelection(newSelection)
                 self.sendEvent("onSelectedAppsUpdated", [:])
-                root.dismiss(animated: true)
+                topVC.dismiss(animated: true)
                 continuation.resume(returning: true)
               },
               onCancel: {
-                root.dismiss(animated: true)
+                topVC.dismiss(animated: true)
                 continuation.resume(returning: false)
               }
             )
           )
           pickerVC.isModalInPresentation = true
-          root.present(pickerVC, animated: true)
+          topVC.present(pickerVC, animated: true)
         }
       }
     }
