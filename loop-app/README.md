@@ -1,50 +1,67 @@
-# Welcome to your Expo app 👋
+# Loop
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Detects when you're stuck scrolling and interrupts you.
 
-## Get started
+On iOS it uses Apple's DeviceActivity API to watch for repeated opens of the same app. On Android it polls UsageStats every 15 minutes via WorkManager. When the score crosses a threshold it fires a notification; tapping it opens a redirect screen with something better to do.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+## Before you build
 
-2. Start the app
+**iOS requires a restricted entitlement.** The `com.apple.developer.family-controls` entitlement is not available by default — Apple has to approve it for your App ID. Without it, the Screen Time authorization dialog never appears and app monitoring silently does nothing. Request access at developer.apple.com before spending time on a build.
 
-   ```bash
-   npx expo start
-   ```
+The notification-based nudges and the rest of the app work fine without it. Only the automatic "you've been scrolling for 5 minutes" detection is blocked.
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Setup
 
 ```bash
-npm run reset-project
+npm install
+npx expo prebuild --clean
+cd ios && pod install && cd ..
+open ios/Loop.xcworkspace
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Build to a physical device. FamilyControls doesn't work in the simulator.
 
-## Learn more
+For everything that needs a native rebuild (changes to `modules/loop-native` or `plugins/`), run `prebuild --clean` again. For JS-only changes you can use the dev server normally.
 
-To learn more about developing your project with Expo, look at the following resources:
+See `modules/loop-native/README-native.md` for Xcode capability setup, the Android usage access flow, and the architecture diagram.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+---
 
-## Join the community
+## Structure
 
-Join our community of developers creating universal apps.
+```
+app/               screens (Expo Router)
+  onboarding/      three-step first-run flow
+  index.tsx        home
+  redirect.tsx     break-the-loop screen
+  settings.tsx     manage apps + hours
+  debug.tsx        score breakdown (5-tap on home title)
+lib/               shared logic
+  content.ts       pick redirect content (weighted, deduped)
+  notifications.ts schedule nudges
+  storage.ts       AsyncStorage wrappers
+  useLoopNative.ts JS wrappers around the native module
+modules/loop-native/
+  ios/             Swift — FamilyControls, DeviceActivity, score sync
+  android/         Kotlin — UsageStats, WorkManager, Loop Score
+plugins/           withLoopNative.js — generates the Xcode extension target
+data/content.json  149 redirect items
+```
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+---
+
+## Builds
+
+```bash
+# internal test build
+eas build --profile preview --platform ios
+
+# both platforms
+eas build --profile preview --platform all
+```
+
+You'll need to fill in `owner` and `extra.eas.projectId` in `app.json` after running `eas init`.
