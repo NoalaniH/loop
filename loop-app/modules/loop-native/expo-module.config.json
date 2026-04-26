@@ -1,0 +1,9 @@
+{
+  "platforms": ["ios", "android"],
+  "ios": {
+    "modules": ["LoopNativeModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.loopnative.LoopNativeModule"]
+  }
+}
